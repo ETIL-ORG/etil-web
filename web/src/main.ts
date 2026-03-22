@@ -60,6 +60,22 @@ async function main(): Promise<void> {
     const resizeObserver = new ResizeObserver(() => fitAddon.fit());
     resizeObserver.observe(container);
 
+    // Let browser handle F5, Ctrl+R, Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+N, etc.
+    terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
+        // F1-F12: let browser handle
+        if (event.key.startsWith('F') && event.key.length <= 3) {
+            return false;
+        }
+        // Ctrl+key browser shortcuts
+        if (event.ctrlKey || event.metaKey) {
+            const key = event.key.toLowerCase();
+            if ('rltnwfpgso'.includes(key)) {
+                return false;  // Let browser handle
+            }
+        }
+        return true;  // Terminal handles
+    });
+
     // Status bar
     const statusEl = document.getElementById('status');
     const setStatus = (text: string, cls: string) => {
@@ -71,10 +87,12 @@ async function main(): Promise<void> {
 
     setStatus('Loading WASM module...', '');
 
-    // Try to load real WASM interpreter
+    // Buffer startup output — don't write to terminal during init
+    const startupErrors: string[] = [];
+
     const wasmInterp = await loadWasmInterpreter(
-        (text) => terminal.writeln(text),   // stdout
-        (text) => terminal.writeln(`\x1b[31m${text}\x1b[0m`),  // stderr in red
+        () => {},  // suppress stdout during init
+        (text) => startupErrors.push(text),  // capture stderr
     );
 
     let glue: EtilGlue;
@@ -87,6 +105,15 @@ async function main(): Promise<void> {
     }
 
     glue.init();
+
+    // Show startup errors after banner if any, dimmed
+    if (startupErrors.length > 0) {
+        for (const err of startupErrors) {
+            if (err.trim()) {
+                terminal.writeln(`\x1b[90m${err}\x1b[0m`);
+            }
+        }
+    }
 
     terminal.onData((data) => glue.onData(data));
     terminal.focus();
