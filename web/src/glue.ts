@@ -1,68 +1,33 @@
 /**
  * WASM <-> xterm.js bridge.
  *
- * Before the real WASM module exists, this provides a mock interpreter
- * that echoes input and responds to basic commands so the frontend
- * can be developed and tested independently.
+ * Connects either the real WASM interpreter or a mock fallback
+ * to the xterm.js terminal.
  */
 
 import type { Terminal } from '@xterm/xterm';
-import type { MockInterpreter } from './types';
-
-/** Create a mock interpreter for frontend development */
-function createMockInterpreter(): MockInterpreter {
-    const stack: string[] = [];
-
-    return {
-        interpret(line: string): string {
-            const trimmed = line.trim();
-            if (!trimmed) return '';
-
-            // Simulate a few basic operations for UI testing
-            if (trimmed === 'help') {
-                return 'ETIL WASM REPL (mock interpreter)\n' +
-                       'The real interpreter will be available after Stage 1.\n' +
-                       'This mock responds to: help, words, .s, <number>';
-            }
-            if (trimmed === 'words') {
-                return '[mock] No words loaded — WASM module not yet built';
-            }
-            if (trimmed === '.s') {
-                if (stack.length === 0) return '(0)';
-                return `(${stack.length}) ${stack.join(' ')}`;
-            }
-
-            // Try to parse as number
-            const num = Number(trimmed);
-            if (!isNaN(num) && trimmed !== '') {
-                stack.push(trimmed);
-                return '';
-            }
-
-            return `[mock] Unknown word: ${trimmed}`;
-        },
-
-        getStack(): string[] {
-            return [...stack];
-        }
-    };
-}
+import type { EtilInterpreter } from './types';
 
 export class EtilGlue {
     private terminal: Terminal;
-    private interpreter: MockInterpreter;
+    private interpreter: EtilInterpreter;
     private lineBuffer: string = '';
     private prompt = '> ';
+    private isWasm: boolean;
 
-    constructor(terminal: Terminal) {
+    constructor(terminal: Terminal, interpreter: EtilInterpreter, isWasm: boolean) {
         this.terminal = terminal;
-        this.interpreter = createMockInterpreter();
+        this.interpreter = interpreter;
+        this.isWasm = isWasm;
     }
 
-    /** Initialize the glue layer and display banner */
+    /** Display banner and prompt */
     init(): void {
-        this.terminal.writeln('\x1b[36mETIL v1.6.0\x1b[0m — Evolutionary Threaded Interpretive Language');
-        this.terminal.writeln('\x1b[90mBrowser REPL (mock interpreter — WASM build pending)\x1b[0m');
+        const version = this.interpreter.getVersion();
+        const mode = this.isWasm ? 'WASM' : 'mock';
+
+        this.terminal.writeln(`\x1b[36mETIL v${version}\x1b[0m — Evolutionary Threaded Interpretive Language`);
+        this.terminal.writeln(`\x1b[90mBrowser REPL (${mode} interpreter)\x1b[0m`);
         this.terminal.writeln('');
         this.writePrompt();
     }
@@ -76,18 +41,15 @@ export class EtilGlue {
                 this.lineBuffer = '';
                 this.writePrompt();
             } else if (ch === '\x7f' || ch === '\b') {
-                // Backspace
                 if (this.lineBuffer.length > 0) {
                     this.lineBuffer = this.lineBuffer.slice(0, -1);
                     this.terminal.write('\b \b');
                 }
             } else if (ch === '\x03') {
-                // Ctrl+C — clear line
                 this.lineBuffer = '';
                 this.terminal.writeln('^C');
                 this.writePrompt();
             } else if (ch >= ' ') {
-                // Printable character
                 this.lineBuffer += ch;
                 this.terminal.write(ch);
             }
@@ -97,13 +59,18 @@ export class EtilGlue {
     private handleLine(line: string): void {
         const output = this.interpreter.interpret(line);
         if (output) {
-            this.terminal.writeln(output);
+            // Split output into lines and write each
+            const lines = output.split('\n');
+            for (const l of lines) {
+                this.terminal.writeln(l);
+            }
         }
-        // Show stack depth in status bar
+
+        // Update status bar with stack
         const stack = this.interpreter.getStack();
         const statusEl = document.getElementById('status');
         if (statusEl) {
-            statusEl.textContent = `Stack: (${stack.length})`;
+            statusEl.textContent = `Stack: ${stack}`;
             statusEl.className = 'status ready';
         }
     }

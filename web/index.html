@@ -17,6 +17,9 @@
             <span class="status" id="status">Initializing...</span>
         </footer>
     </div>
+    <!-- Emscripten loader (defines globalThis.createEtilModule) -->
+    <!-- Falls back gracefully if not present — mock interpreter activates -->
+    <script src="wasm/etil.js" onerror="console.log('WASM module not found, using mock')"></script>
     <script type="module" src="dist/main.js"></script>
 </body>
 </html>

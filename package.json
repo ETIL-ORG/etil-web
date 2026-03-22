@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "esbuild web/src/main.ts --bundle --outdir=web/dist --servedir=web --serve=8080 --watch",
     "build": "esbuild web/src/main.ts --bundle --outdir=web/dist --minify --sourcemap",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "stage:wasm": "mkdir -p web/wasm && cp build-wasm/etil.js build-wasm/etil.wasm web/wasm/"
   },
   "keywords": ["etil", "forth", "wasm", "repl"],
   "author": "ETIL-ORG",

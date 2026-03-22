@@ -1,26 +1,25 @@
 /**
  * ETIL Browser REPL — Entry point.
  *
- * Initializes xterm.js terminal, connects the WASM glue layer,
- * and manages terminal resize via the fit addon.
+ * Tries to load the WASM interpreter. Falls back to mock if unavailable.
  */
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { EtilGlue } from './glue';
+import { loadWasmInterpreter } from './wasm-interpreter';
+import { MockInterpreter } from './mock-interpreter';
 
-// Import xterm.js CSS — esbuild bundles this
 import '@xterm/xterm/css/xterm.css';
 
-function main(): void {
+async function main(): Promise<void> {
     const container = document.getElementById('terminal-container');
     if (!container) {
         console.error('terminal-container not found');
         return;
     }
 
-    // Create terminal
     const terminal = new Terminal({
         fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace',
         fontSize: 14,
@@ -51,42 +50,48 @@ function main(): void {
         },
     });
 
-    // Addons
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(new WebLinksAddon());
 
-    // Mount terminal
     terminal.open(container);
     fitAddon.fit();
 
-    // Resize on window resize
-    const resizeObserver = new ResizeObserver(() => {
-        fitAddon.fit();
-    });
+    const resizeObserver = new ResizeObserver(() => fitAddon.fit());
     resizeObserver.observe(container);
 
-    // Initialize ETIL glue layer
-    const glue = new EtilGlue(terminal);
-    glue.init();
-
-    // Wire input
-    terminal.onData((data) => {
-        glue.onData(data);
-    });
-
-    // Update status
+    // Status bar
     const statusEl = document.getElementById('status');
-    if (statusEl) {
-        statusEl.textContent = 'Ready (mock interpreter)';
-        statusEl.className = 'status ready';
+    const setStatus = (text: string, cls: string) => {
+        if (statusEl) {
+            statusEl.textContent = text;
+            statusEl.className = `status ${cls}`;
+        }
+    };
+
+    setStatus('Loading WASM module...', '');
+
+    // Try to load real WASM interpreter
+    const wasmInterp = await loadWasmInterpreter(
+        (text) => terminal.writeln(text),   // stdout
+        (text) => terminal.writeln(`\x1b[31m${text}\x1b[0m`),  // stderr in red
+    );
+
+    let glue: EtilGlue;
+    if (wasmInterp) {
+        glue = new EtilGlue(terminal, wasmInterp, true);
+        setStatus('Ready (WASM)', 'ready');
+    } else {
+        glue = new EtilGlue(terminal, new MockInterpreter(), false);
+        setStatus('Ready (mock — WASM not loaded)', 'ready');
     }
 
-    // Focus terminal
+    glue.init();
+
+    terminal.onData((data) => glue.onData(data));
     terminal.focus();
 }
 
-// Run when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', main);
 } else {

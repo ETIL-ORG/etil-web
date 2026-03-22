@@ -4,6 +4,7 @@ build-wasm/
 node_modules/
 dist/
 web/dist/
+web/wasm/
 etil-src
 *.swp
 *.swo
