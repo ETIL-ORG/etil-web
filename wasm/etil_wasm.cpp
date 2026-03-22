@@ -37,8 +37,22 @@ void etil_init() {
     g_interp = new etil::core::Interpreter(*g_dict, g_out, g_err);
 
     // Load startup files from Emscripten MEMFS
-    g_interp->load_file("/data/builtins.til");
-    g_interp->load_file("/data/help.til");
+    // Failures are non-fatal — interpreter works without them
+    try {
+        if (!g_interp->load_file("/data/builtins.til")) {
+            g_err << "Warning: failed to load builtins.til\n";
+        }
+    } catch (...) {
+        g_err << "Warning: exception loading builtins.til\n";
+    }
+
+    try {
+        if (!g_interp->load_file("/data/help.til")) {
+            g_err << "Warning: failed to load help.til\n";
+        }
+    } catch (...) {
+        g_err << "Warning: exception loading help.til\n";
+    }
 }
 
 /// Interpret a line of TIL code.

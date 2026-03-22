@@ -9,6 +9,11 @@ set(ETIL_BUILD_HTTP_CLIENT OFF CACHE BOOL "" FORCE)
 set(ETIL_BUILD_JWT OFF CACHE BOOL "" FORCE)
 set(ETIL_BUILD_MONGODB OFF CACHE BOOL "" FORCE)
 
+# Enable WASM exceptions for the entire build
+if(EMSCRIPTEN)
+    add_compile_options(-fwasm-exceptions)
+endif()
+
 # Include the ETIL source tree (via symlink etil-src -> evolutionary-til)
 add_subdirectory(etil-src)
 
@@ -30,7 +35,8 @@ if(EMSCRIPTEN)
         "SHELL:-s EXPORTED_RUNTIME_METHODS=['UTF8ToString','allocateUTF8','ccall','cwrap']"
         "SHELL:-s MODULARIZE=1"
         "SHELL:-s EXPORT_NAME='createEtilModule'"
-        "SHELL:-s ENVIRONMENT='web'"
+        "SHELL:-s ENVIRONMENT='web,node'"
+        "SHELL:-fwasm-exceptions"
         "SHELL:--embed-file ${CMAKE_CURRENT_SOURCE_DIR}/etil-src/data@/data"
     )
 endif()
