@@ -87,12 +87,12 @@ async function main(): Promise<void> {
 
     setStatus('Loading WASM module...', '');
 
-    // Buffer startup output — don't write to terminal during init
-    const startupErrors: string[] = [];
+    // Suppress all output during WASM init — show errors after banner
+    const startupMessages: string[] = [];
 
     const wasmInterp = await loadWasmInterpreter(
-        () => {},  // suppress stdout during init
-        (text) => startupErrors.push(text),  // capture stderr
+        (text) => startupMessages.push(text),   // capture stdout
+        (text) => startupMessages.push(text),   // capture stderr
     );
 
     let glue: EtilGlue;
@@ -106,12 +106,12 @@ async function main(): Promise<void> {
 
     glue.init();
 
-    // Show startup errors after banner if any, dimmed
-    if (startupErrors.length > 0) {
-        for (const err of startupErrors) {
-            if (err.trim()) {
-                terminal.writeln(`\x1b[90m${err}\x1b[0m`);
-            }
+    // Show startup messages after banner if any, dimmed
+    // Filter out noise (empty lines, bare > characters from help.til)
+    for (const msg of startupMessages) {
+        const trimmed = msg.trim();
+        if (trimmed && !/^>+$/.test(trimmed)) {
+            terminal.writeln(`\x1b[90m${trimmed}\x1b[0m`);
         }
     }
 
