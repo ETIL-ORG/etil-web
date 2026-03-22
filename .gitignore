@@ -3,6 +3,7 @@ CLAUDE.md
 build-wasm/
 node_modules/
 dist/
+web/dist/
 *.swp
 *.swo
 *~

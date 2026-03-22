@@ -4,8 +4,8 @@
   "description": "ETIL Browser REPL via WebAssembly",
   "type": "module",
   "scripts": {
-    "dev": "esbuild web/src/main.ts --bundle --outdir=dist --servedir=web --serve=8080 --watch",
-    "build": "esbuild web/src/main.ts --bundle --outdir=dist --minify --sourcemap",
+    "dev": "esbuild web/src/main.ts --bundle --outdir=web/dist --servedir=web --serve=8080 --watch",
+    "build": "esbuild web/src/main.ts --bundle --outdir=web/dist --minify --sourcemap",
     "typecheck": "tsc --noEmit"
   },
   "keywords": ["etil", "forth", "wasm", "repl"],
