@@ -1,0 +1,8 @@
+CLAUDE.md
+.claude/
+build-wasm/
+node_modules/
+dist/
+*.swp
+*.swo
+*~
