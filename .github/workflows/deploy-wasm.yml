@@ -1,0 +1,86 @@
+name: Deploy WASM REPL to GitHub Pages
+
+on:
+  push:
+    branches: [wasm]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      # TODO: Stage 1 — Uncomment when Emscripten build exists
+      # - name: Setup Emscripten
+      #   uses: mymindstorm/setup-emsdk@v14
+      #   with:
+      #     version: 3.1.51
+      #
+      # - name: Configure WASM build
+      #   run: |
+      #     emcmake cmake -B build-wasm -GNinja \
+      #       -DCMAKE_BUILD_TYPE=Release \
+      #       -DETIL_WASM_TARGET=ON \
+      #       -DETIL_BUILD_TESTS=OFF \
+      #       -DETIL_BUILD_HTTP_CLIENT=OFF \
+      #       -DETIL_BUILD_MONGODB=OFF \
+      #       -DETIL_BUILD_JWT=OFF
+      #
+      # - name: Build WASM
+      #   run: ninja -C build-wasm
+      #
+      # - name: Optimize WASM
+      #   run: wasm-opt -Oz build-wasm/etil.wasm -o build-wasm/etil.wasm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp web/index.html _site/
+          cp -r web/styles _site/
+          cp -r dist/* _site/
+          # TODO: Stage 1 — Copy WASM artifacts
+          # cp build-wasm/etil.js _site/
+          # cp build-wasm/etil.wasm _site/
+          # mkdir -p _site/data
+          # cp data/builtins.til data/help.til _site/data/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
