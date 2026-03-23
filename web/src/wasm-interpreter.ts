@@ -83,30 +83,38 @@ export class WasmInterpreter implements EtilInterpreter {
  * Mount IDBFS at /home for persistent storage.
  * Populates MEMFS from IndexedDB on first load.
  */
-async function mountIDBFS(module: EtilModule): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+async function mountIDBFS(module: EtilModule): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
         try {
-            // IDBFS is available as a property on the FS module
-            const IDBFS = (module as unknown as Record<string, unknown>).IDBFS;
+            // Emscripten exposes IDBFS via FS.filesystems
+            const fsModule = module.FS as unknown as Record<string, unknown>;
+            const filesystems = fsModule.filesystems as Record<string, unknown> | undefined;
+            const IDBFS = filesystems?.IDBFS;
             if (!IDBFS) {
                 console.warn('IDBFS not available — files will not persist');
-                resolve();
+                resolve(false);
                 return;
             }
 
-            // Mount IDBFS at /home
+            // /home is created by etil_init() via std::filesystem::create_directories
+            // but IDBFS must be mounted before init so it persists.
+            // Create /home if it doesn't exist, then mount IDBFS on it.
+            try { module.FS.mkdir('/home'); } catch { /* already exists */ }
+
             module.FS.mount(IDBFS, {}, '/home');
 
             // Populate MEMFS from IndexedDB (true = populate from persistent)
             module.FS.syncfs(true, (err: unknown) => {
                 if (err) {
                     console.warn('IDBFS sync failed:', err);
+                    resolve(false);
+                } else {
+                    resolve(true);
                 }
-                resolve();
             });
         } catch (err) {
             console.warn('IDBFS mount failed:', err);
-            resolve(); // Non-fatal — interpreter works without persistence
+            resolve(false);
         }
     });
 }
@@ -145,9 +153,14 @@ function registerSyncCallback(module: EtilModule): void {
  */
 function seedExampleFiles(module: EtilModule): void {
     // Check if /home is empty (first launch)
-    const files = module.FS.readdir('/home').filter(
-        (f: string) => f !== '.' && f !== '..'
-    );
+    let files: string[];
+    try {
+        files = module.FS.readdir('/home').filter(
+            (f: string) => f !== '.' && f !== '..'
+        );
+    } catch {
+        return; // /home doesn't exist yet
+    }
     if (files.length > 0) return; // Already has files
 
     const examples: Record<string, string> = {
@@ -216,17 +229,19 @@ export async function loadWasmInterpreter(
             printErr: onStderr ?? console.error,
         } as Partial<EtilModule>);
 
-        // Mount IDBFS before init so /home persists
-        await mountIDBFS(module);
+        // Mount IDBFS at /home before init (persists user files)
+        const idbfsOk = await mountIDBFS(module);
 
-        // Seed example files on first launch
-        seedExampleFiles(module);
-
-        // Initialize interpreter (loads builtins.til + help.til)
+        // Initialize interpreter (loads builtins.til + help.til, creates /home)
         module._etil_init();
 
-        // Register sync callback after init
-        registerSyncCallback(module);
+        // Seed example files on first launch (after init created /home)
+        seedExampleFiles(module);
+
+        // Register sync callback (only if IDBFS mounted)
+        if (idbfsOk) {
+            registerSyncCallback(module);
+        }
 
         return new WasmInterpreter(module);
     } catch (err) {
