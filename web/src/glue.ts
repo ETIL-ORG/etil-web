@@ -8,7 +8,7 @@
 import type { Terminal } from '@xterm/xterm';
 import type { EtilInterpreter } from './types';
 import type { WasmInterpreter } from './wasm-interpreter';
-import { fetchGet, fetchPost, formatResult } from './fetch-bridge';
+import { fetchGet, fetchPost, formatResult, type FetchResult } from './fetch-bridge';
 
 // Injected by esbuild --define:BUILD_TIME at build time
 declare const BUILD_TIME: string;
@@ -552,6 +552,8 @@ export class EtilGlue {
             for (const line of formatResult(result)) {
                 this.terminal.writeln(line);
             }
+            // Push response body and status onto TIL stack
+            this.pushFetchResult(result);
             this.writePrompt();
         });
     }
@@ -570,8 +572,32 @@ export class EtilGlue {
             for (const line of formatResult(result)) {
                 this.terminal.writeln(line);
             }
+            this.pushFetchResult(result);
             this.writePrompt();
         });
+    }
+
+    /**
+     * Push fetch result onto TIL stack.
+     * On success: saves body to /tmp/_fetch_result, pushes status code and true.
+     *   Stack: ( -- status-int true )
+     *   Body available via: cat /tmp/_fetch_result
+     *   Or: s" /tmp/_fetch_result" ... (future read-file word)
+     * On error: pushes false.
+     *   Stack: ( -- false )
+     */
+    private pushFetchResult(result: FetchResult): void {
+        if (result.error) {
+            this.interpreter.interpret('false');
+        } else {
+            // Save body to temp file so TIL code can access it
+            if (this.wasmInterp) {
+                this.wasmInterp.writeFile('/tmp/_fetch_result', result.body);
+            }
+            this.interpreter.interpret(`${result.status} ${result.ok ? 'true' : 'false'}`);
+            this.terminal.writeln(`\x1b[90mBody saved to /tmp/_fetch_result (${result.body.length} bytes)\x1b[0m`);
+        }
+        this.updateStatus();
     }
 
     /** Set up drag-and-drop file upload on the terminal container */
