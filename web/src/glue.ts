@@ -8,6 +8,7 @@
 import type { Terminal } from '@xterm/xterm';
 import type { EtilInterpreter } from './types';
 import type { WasmInterpreter } from './wasm-interpreter';
+import { fetchGet, fetchPost, formatResult } from './fetch-bridge';
 
 // Injected by esbuild --define:BUILD_TIME at build time
 declare const BUILD_TIME: string;
@@ -25,8 +26,10 @@ const HELP_LINES = [
     '  \x1b[33m/ls [path]\x1b[0m          List files in /home',
     '  \x1b[33m/upload\x1b[0m             Upload a .til file (opens file picker)',
     '  \x1b[33m/download <path>\x1b[0m    Download a file from /home',
-    '  \x1b[33m/export\x1b[0m             Export /home as .tar.gz',
-    '  \x1b[33m/import\x1b[0m             Import a .tar.gz into /home',
+    '  \x1b[33m/export\x1b[0m             Export /home as JSON archive',
+    '  \x1b[33m/import\x1b[0m             Import a JSON archive into /home',
+    '  \x1b[33m/get <url>\x1b[0m          HTTP GET (subject to CORS)',
+    '  \x1b[33m/post <url> <body>\x1b[0m  HTTP POST (subject to CORS)',
     '',
     '  Type any TIL code at the prompt.',
     '  Example: \x1b[32m42 dup + .\x1b[0m',
@@ -335,16 +338,23 @@ export class EtilGlue {
             case '/import':
                 this.cmdImport();
                 break;
-            default:
+            default: {
                 // Commands with arguments
-                if (cmd.toLowerCase().startsWith('/download ')) {
+                const lower = cmd.toLowerCase();
+                if (lower.startsWith('/download ')) {
                     this.cmdDownload(cmd.substring(10).trim());
-                } else if (cmd.toLowerCase().startsWith('/ls')) {
+                } else if (lower.startsWith('/ls')) {
                     this.cmdLs(cmd.substring(3).trim());
+                } else if (lower.startsWith('/get ')) {
+                    this.cmdFetchGet(cmd.substring(5).trim());
+                } else if (lower.startsWith('/post ')) {
+                    this.cmdFetchPost(cmd.substring(6).trim());
                 } else {
                     this.terminal.writeln(`\x1b[31mUnknown command: ${cmd}\x1b[0m`);
                     this.terminal.writeln(`Type \x1b[33m/help\x1b[0m for available commands.`);
                 }
+                break;
+            }
         }
     }
 
@@ -528,6 +538,40 @@ export class EtilGlue {
             reader.readAsText(input.files[0]);
         };
         input.click();
+    }
+
+    // ---- HTTP fetch commands ----
+
+    private cmdFetchGet(url: string): void {
+        if (!url) {
+            this.terminal.writeln('\x1b[31mUsage: /get <url>\x1b[0m');
+            return;
+        }
+        this.terminal.writeln(`\x1b[90mGET ${url}...\x1b[0m`);
+        fetchGet(url).then(result => {
+            for (const line of formatResult(result)) {
+                this.terminal.writeln(line);
+            }
+            this.writePrompt();
+        });
+    }
+
+    private cmdFetchPost(args: string): void {
+        // Split on first space: url body
+        const spaceIdx = args.indexOf(' ');
+        if (spaceIdx === -1) {
+            this.terminal.writeln('\x1b[31mUsage: /post <url> <body>\x1b[0m');
+            return;
+        }
+        const url = args.substring(0, spaceIdx);
+        const body = args.substring(spaceIdx + 1);
+        this.terminal.writeln(`\x1b[90mPOST ${url}...\x1b[0m`);
+        fetchPost(url, body).then(result => {
+            for (const line of formatResult(result)) {
+                this.terminal.writeln(line);
+            }
+            this.writePrompt();
+        });
     }
 
     /** Set up drag-and-drop file upload on the terminal container */
