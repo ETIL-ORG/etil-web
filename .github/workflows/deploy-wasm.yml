@@ -2,7 +2,7 @@ name: Deploy WASM REPL to GitHub Pages
 
 on:
   push:
-    branches: [wasm]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -18,7 +18,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout etil-web
+        uses: actions/checkout@v4
+
+      - name: Checkout ETIL source
+        uses: actions/checkout@v4
+        with:
+          repository: ETIL-ORG/etil
+          path: etil-src
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.51
+
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
+
+      - name: Configure WASM build
+        run: |
+          emcmake cmake -B build-wasm -GNinja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build WASM
+        run: ninja -C build-wasm
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,28 +50,6 @@ jobs:
 
       - name: Install pnpm
         run: npm install -g pnpm
-
-      # TODO: Stage 1 — Uncomment when Emscripten build exists
-      # - name: Setup Emscripten
-      #   uses: mymindstorm/setup-emsdk@v14
-      #   with:
-      #     version: 3.1.51
-      #
-      # - name: Configure WASM build
-      #   run: |
-      #     emcmake cmake -B build-wasm -GNinja \
-      #       -DCMAKE_BUILD_TYPE=Release \
-      #       -DETIL_WASM_TARGET=ON \
-      #       -DETIL_BUILD_TESTS=OFF \
-      #       -DETIL_BUILD_HTTP_CLIENT=OFF \
-      #       -DETIL_BUILD_MONGODB=OFF \
-      #       -DETIL_BUILD_JWT=OFF
-      #
-      # - name: Build WASM
-      #   run: ninja -C build-wasm
-      #
-      # - name: Optimize WASM
-      #   run: wasm-opt -Oz build-wasm/etil.wasm -o build-wasm/etil.wasm
 
       - name: Install dependencies
         run: pnpm install
@@ -59,17 +60,18 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
+      - name: Stage WASM artifacts
+        run: mkdir -p web/wasm && cp build-wasm/etil.js build-wasm/etil.wasm web/wasm/
+
       - name: Assemble site
         run: |
-          mkdir -p _site
+          mkdir -p _site/dist _site/styles _site/wasm
           cp web/index.html _site/
-          cp -r web/styles _site/
-          cp -r dist/* _site/
-          # TODO: Stage 1 — Copy WASM artifacts
-          # cp build-wasm/etil.js _site/
-          # cp build-wasm/etil.wasm _site/
-          # mkdir -p _site/data
-          # cp data/builtins.til data/help.til _site/data/
+          cp -r web/styles/* _site/styles/
+          cp web/dist/main.js _site/dist/
+          cp web/dist/main.css _site/dist/
+          cp web/wasm/etil.js _site/wasm/
+          cp web/wasm/etil.wasm _site/wasm/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
