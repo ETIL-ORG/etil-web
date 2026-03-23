@@ -96,11 +96,11 @@ export class EtilGlue {
                 if (this.lineBuffer.trim()) {
                     this.addToHistory(this.lineBuffer);
                 }
-                this.handleLine(this.lineBuffer);
+                const deferred = this.handleLine(this.lineBuffer);
                 this.lineBuffer = '';
                 this.cursorPos = 0;
                 this.historyIndex = -1;
-                this.writePrompt();
+                if (!deferred) this.writePrompt();
             } else if (ch === '\x7f' || ch === '\b') {
                 this.handleBackspace();
             } else if (ch === '\x03') {
@@ -283,13 +283,14 @@ export class EtilGlue {
         }
     }
 
-    private handleLine(line: string): void {
+    /** Returns true if prompt is deferred (async op pending) */
+    private handleLine(line: string): boolean {
         const trimmed = line.trim();
 
         // Meta-commands
         if (trimmed.startsWith('/')) {
             this.handleMetaCommand(trimmed);
-            return;
+            return false;
         }
 
         // TIL code
@@ -302,10 +303,11 @@ export class EtilGlue {
 
         // Check for pending fetch (http-get / http-post deferred to JS)
         if (this.wasmInterp && this.checkPendingFetch()) {
-            return; // Prompt written after async fetch completes
+            return true; // Prompt written after async fetch completes
         }
 
         this.updateStatus();
+        return false;
     }
 
     private handleMetaCommand(cmd: string): void {
