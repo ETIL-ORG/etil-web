@@ -20,12 +20,15 @@ async function main(): Promise<void> {
         return;
     }
 
+    // Create terminal but don't open it yet — prevents Emscripten
+    // from finding and writing to the xterm DOM during WASM init
     const terminal = new Terminal({
         fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace',
         fontSize: 14,
         lineHeight: 1.2,
         cursorBlink: true,
         cursorStyle: 'block',
+        allowProposedApi: true,
         theme: {
             background: '#0a0e1a',
             foreground: '#e0e0e0',
@@ -54,26 +57,13 @@ async function main(): Promise<void> {
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(new WebLinksAddon());
 
-    terminal.open(container);
-    fitAddon.fit();
-
-    const resizeObserver = new ResizeObserver(() => fitAddon.fit());
-    resizeObserver.observe(container);
-
-    // Let browser handle F5, Ctrl+R, Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+N, etc.
+    // Let browser handle F1-F12, Ctrl+R/L/T/W/N/F/P/G/S/O
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
-        // F1-F12: let browser handle
-        if (event.key.startsWith('F') && event.key.length <= 3) {
-            return false;
-        }
-        // Ctrl+key browser shortcuts
+        if (event.key.startsWith('F') && event.key.length <= 3) return false;
         if (event.ctrlKey || event.metaKey) {
-            const key = event.key.toLowerCase();
-            if ('rltnwfpgso'.includes(key)) {
-                return false;  // Let browser handle
-            }
+            if ('rltnwfpgso'.includes(event.key.toLowerCase())) return false;
         }
-        return true;  // Terminal handles
+        return true;
     });
 
     // Status bar
@@ -87,13 +77,22 @@ async function main(): Promise<void> {
 
     setStatus('Loading WASM module...', '');
 
-    // Suppress all output during WASM init — show errors after banner
-    const startupMessages: string[] = [];
-
+    // Load WASM module BEFORE opening the terminal — all stdout/stderr
+    // during init is silently discarded so nothing touches the DOM
     const wasmInterp = await loadWasmInterpreter(
-        (text) => startupMessages.push(text),   // capture stdout
-        (text) => startupMessages.push(text),   // capture stderr
+        () => {},
+        () => {},
     );
+
+    // Wait for fonts to load before opening terminal — prevents
+    // glyph measurement errors that cause rendering artifacts
+    await document.fonts.ready;
+
+    terminal.open(container);
+    fitAddon.fit();
+
+    const resizeObserver = new ResizeObserver(() => fitAddon.fit());
+    resizeObserver.observe(container);
 
     let glue: EtilGlue;
     if (wasmInterp) {
@@ -106,17 +105,9 @@ async function main(): Promise<void> {
 
     glue.init();
 
-    // Show startup messages after banner if any, dimmed
-    // Filter out noise (empty lines, bare > characters from help.til)
-    for (const msg of startupMessages) {
-        const trimmed = msg.trim();
-        if (trimmed && !/^>+$/.test(trimmed)) {
-            terminal.writeln(`\x1b[90m${trimmed}\x1b[0m`);
-        }
-    }
-
     terminal.onData((data) => glue.onData(data));
     terminal.focus();
+
 }
 
 if (document.readyState === 'loading') {

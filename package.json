@@ -4,19 +4,24 @@
   "description": "ETIL Browser REPL via WebAssembly",
   "type": "module",
   "scripts": {
-    "dev": "esbuild web/src/main.ts --bundle --outdir=web/dist --servedir=web --serve=8080 --watch",
-    "build": "esbuild web/src/main.ts --bundle --outdir=web/dist --minify --sourcemap",
+    "dev": "node scripts/build.cjs dev",
+    "build": "node scripts/build.cjs build",
     "typecheck": "tsc --noEmit",
     "stage:wasm": "mkdir -p web/wasm && cp build-wasm/etil.js build-wasm/etil.wasm web/wasm/"
   },
-  "keywords": ["etil", "forth", "wasm", "repl"],
+  "keywords": [
+    "etil",
+    "forth",
+    "wasm",
+    "repl"
+  ],
   "author": "ETIL-ORG",
   "license": "BSD-3-Clause",
   "packageManager": "pnpm@10.32.1",
   "devDependencies": {
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/addon-web-links": "^0.12.0",
-    "@xterm/xterm": "^6.0.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-web-links": "0.12.0",
+    "@xterm/xterm": "6.0.0",
     "esbuild": "^0.27.4",
     "typescript": "^5.9.3"
   }

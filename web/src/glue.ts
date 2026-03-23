@@ -8,6 +8,9 @@
 import type { Terminal } from '@xterm/xterm';
 import type { EtilInterpreter } from './types';
 
+// Injected by esbuild --define:BUILD_TIME at build time
+declare const BUILD_TIME: string;
+
 const MAX_HISTORY = 100;
 
 const HELP_TEXT = `\x1b[36mETIL Browser REPL — Commands\x1b[0m
@@ -42,9 +45,11 @@ export class EtilGlue {
     init(): void {
         const version = this.interpreter.getVersion();
         const mode = this.isWasm ? 'WASM' : 'mock';
+        const buildTime = BUILD_TIME;
 
         this.terminal.writeln(`\x1b[36mETIL v${version}\x1b[0m — Evolutionary Threaded Interpretive Language`);
         this.terminal.writeln(`\x1b[90mBrowser REPL (${mode} interpreter) — type /help for commands\x1b[0m`);
+        this.terminal.writeln(`\x1b[90mBuild: ${buildTime}\x1b[0m`);
         this.terminal.writeln('');
         this.writePrompt();
     }

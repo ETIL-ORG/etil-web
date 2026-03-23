@@ -9,13 +9,13 @@ importers:
   .:
     devDependencies:
       '@xterm/addon-fit':
-        specifier: ^0.11.0
+        specifier: 0.11.0
         version: 0.11.0
       '@xterm/addon-web-links':
-        specifier: ^0.12.0
+        specifier: 0.12.0
         version: 0.12.0
       '@xterm/xterm':
-        specifier: ^6.0.0
+        specifier: 6.0.0
         version: 6.0.0
       esbuild:
         specifier: ^0.27.4

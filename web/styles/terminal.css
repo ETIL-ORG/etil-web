@@ -18,39 +18,25 @@ html, body {
     height: 100vh;
 }
 
-#header {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    padding: 8px 16px;
-    background: #111827;
-    border-bottom: 1px solid #1f2937;
-    flex-shrink: 0;
-}
-
-#header h1 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #4fc3f7;
-}
-
-#header .version {
-    font-size: 12px;
-    font-weight: 400;
-    color: #666;
-}
-
-#header .subtitle {
-    font-size: 12px;
-    color: #6b7280;
-}
-
 #terminal-container {
     flex: 1;
     min-height: 0;
-    padding: 4px;
-    position: relative;
     overflow: hidden;
+}
+
+/* xterm.js helper elements (textarea, char measurement spans) are 52px tall
+   and sit above the terminal rows, causing visible artifacts. The DOM renderer
+   places them in-flow before .xterm-rows — they must not occupy visual space. */
+.xterm .xterm-helpers {
+    overflow: hidden !important;
+    height: 0 !important;
+    opacity: 0 !important;
+}
+
+/* The helper textarea still needs to receive keyboard events */
+.xterm .xterm-helper-textarea {
+    position: absolute !important;
+    opacity: 0 !important;
 }
 
 #footer {
@@ -60,6 +46,7 @@ html, body {
     background: #111827;
     border-top: 1px solid #1f2937;
     flex-shrink: 0;
+    height: 24px;
 }
 
 #footer .status {
@@ -73,9 +60,4 @@ html, body {
 
 #footer .status.error {
     color: #ef5350;
-}
-
-/* xterm.js container fills its parent */
-#terminal-container .xterm {
-    height: 100%;
 }
