@@ -315,5 +315,6 @@ export class EtilGlue {
 
     private writePrompt(): void {
         this.terminal.write(this.prompt);
+        this.terminal.scrollToBottom();
     }
 }

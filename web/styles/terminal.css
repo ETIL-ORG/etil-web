@@ -47,7 +47,9 @@ html, body {
 
 #terminal-container {
     flex: 1;
+    min-height: 0;
     padding: 4px;
+    position: relative;
     overflow: hidden;
 }
 
