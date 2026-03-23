@@ -31,7 +31,7 @@ if(EMSCRIPTEN)
         "SHELL:-s WASM=1"
         "SHELL:-s ALLOW_MEMORY_GROWTH=1"
         "SHELL:-s INITIAL_MEMORY=268435456"
-        "SHELL:-s EXPORTED_FUNCTIONS=['_etil_init','_etil_interpret','_etil_get_stack','_etil_version','_etil_set_fs_write_callback','_etil_write_file','_etil_read_file','_etil_exists','_etil_mkdir','_etil_rm','_free','_malloc']"
+        "SHELL:-s EXPORTED_FUNCTIONS=['_etil_init','_etil_interpret','_etil_get_stack','_etil_version','_etil_set_fs_write_callback','_etil_write_file','_etil_read_file','_etil_exists','_etil_mkdir','_etil_rm','_etil_pending_fetch','_etil_pending_fetch_url','_etil_pending_fetch_body','_etil_push_fetch_result','_etil_clear_pending_fetch','_free','_malloc']"
         "SHELL:-s EXPORTED_RUNTIME_METHODS=['UTF8ToString','allocateUTF8','ccall','cwrap','addFunction','FS']"
         "SHELL:-s ALLOW_TABLE_GROWTH=1"
         "SHELL:-s MODULARIZE=1"

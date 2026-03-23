@@ -14,6 +14,11 @@ export interface EtilModule {
     _etil_exists(pathPtr: number): number;
     _etil_mkdir(pathPtr: number): number;
     _etil_rm(pathPtr: number): number;
+    _etil_pending_fetch(): number;
+    _etil_pending_fetch_url(): number;
+    _etil_pending_fetch_body(): number;
+    _etil_push_fetch_result(bodyPtr: number, status: number, ok: number): void;
+    _etil_clear_pending_fetch(): void;
     _free(ptr: number): void;
     _malloc(size: number): number;
 

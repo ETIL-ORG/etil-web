@@ -300,6 +300,11 @@ export class EtilGlue {
             }
         }
 
+        // Check for pending fetch (http-get / http-post deferred to JS)
+        if (this.wasmInterp && this.checkPendingFetch()) {
+            return; // Prompt written after async fetch completes
+        }
+
         this.updateStatus();
     }
 
@@ -540,7 +545,53 @@ export class EtilGlue {
         input.click();
     }
 
-    // ---- HTTP fetch commands ----
+    // ---- Pending fetch (http-get / http-post via C++ → JS bridge) ----
+
+    /**
+     * Check if the interpreter has a pending fetch request.
+     * If so, execute it asynchronously and push results to the stack.
+     * Returns true if a fetch was initiated (prompt will be written later).
+     */
+    private checkPendingFetch(): boolean {
+        if (!this.wasmInterp) return false;
+        const module = this.wasmInterp.raw;
+        const pending = module._etil_pending_fetch();
+        if (pending === 0) return false;
+
+        const url = module.UTF8ToString(module._etil_pending_fetch_url());
+        const isPost = pending === 2;
+
+        this.terminal.writeln(`\x1b[90m${isPost ? 'POST' : 'GET'} ${url}...\x1b[0m`);
+
+        const doFetch = isPost
+            ? fetchPost(url, module.UTF8ToString(module._etil_pending_fetch_body()))
+            : fetchGet(url);
+
+        doFetch.then(result => {
+            // Display response
+            for (const line of formatResult(result)) {
+                this.terminal.writeln(line);
+            }
+
+            if (result.error) {
+                // Push false onto stack
+                module._etil_clear_pending_fetch();
+                this.interpreter.interpret('false');
+            } else {
+                // Push body string + status + flag onto stack via C export
+                const bodyPtr = module.allocateUTF8(result.body);
+                module._etil_push_fetch_result(bodyPtr, result.status, result.ok ? 1 : 0);
+                module._free(bodyPtr);
+            }
+
+            this.updateStatus();
+            this.writePrompt();
+        });
+
+        return true;
+    }
+
+    // ---- HTTP fetch meta-commands ----
 
     private cmdFetchGet(url: string): void {
         if (!url) {
