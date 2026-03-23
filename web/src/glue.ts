@@ -568,12 +568,11 @@ export class EtilGlue {
             : fetchGet(url);
 
         doFetch.then(result => {
-            // Display response
-            for (const line of formatResult(result)) {
-                this.terminal.writeln(line);
-            }
-
             if (result.error) {
+                // Only display errors
+                for (const line of formatResult(result)) {
+                    this.terminal.writeln(line);
+                }
                 // Push false onto stack
                 module._etil_clear_pending_fetch();
                 this.interpreter.interpret('false');
