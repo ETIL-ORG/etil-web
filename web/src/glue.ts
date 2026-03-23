@@ -561,8 +561,6 @@ export class EtilGlue {
         const url = module.UTF8ToString(module._etil_pending_fetch_url());
         const isPost = pending === 2;
 
-        this.terminal.writeln(`\x1b[90m${isPost ? 'POST' : 'GET'} ${url}...\x1b[0m`);
-
         const doFetch = isPost
             ? fetchPost(url, module.UTF8ToString(module._etil_pending_fetch_body()))
             : fetchGet(url);
