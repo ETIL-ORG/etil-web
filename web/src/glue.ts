@@ -24,6 +24,7 @@ const HELP_LINES = [
     '',
     '  \x1b[33m/help\x1b[0m               Show this help',
     '  \x1b[33m/words\x1b[0m              List all dictionary words',
+    '  \x1b[33m/reset\x1b[0m              Clear stack, cancel any colon def in progress',
     '  \x1b[33m/clear\x1b[0m              Clear the terminal',
     '  \x1b[33m/stack\x1b[0m              Show the data stack',
     '  \x1b[33m/version\x1b[0m            Show ETIL version',
@@ -347,6 +348,9 @@ export class EtilGlue {
                     }
                 }
                 break;
+            case '/reset':
+                this.cmdReset();
+                break;
             case '/clear':
                 this.terminal.clear();
                 break;
@@ -399,6 +403,16 @@ export class EtilGlue {
     private writePrompt(): void {
         this.terminal.write(this.prompt);
         this.terminal.scrollToBottom();
+    }
+
+    // ---- Reset ----
+
+    private cmdReset(): void {
+        // Close any in-progress colon definition (harmless error if not compiling)
+        this.interpreter.interpret(';');
+        // Drain the data stack — do/loop is compile-only so use a temp word
+        this.interpreter.interpret(': __reset depth 0 do drop loop ; __reset');
+        this.terminal.writeln('\x1b[33mStack cleared, definitions cancelled.\x1b[0m');
     }
 
     // ---- File meta-commands ----

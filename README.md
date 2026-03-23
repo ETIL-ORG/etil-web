@@ -7,7 +7,7 @@ Browser-based REPL for [ETIL](https://github.com/ETIL-ORG/etil) (Evolutionary Th
 ## Features
 
 - Full ETIL interpreter running client-side in the browser — no server required
-- 200+ TIL words: arithmetic, stack, strings, arrays, maps, JSON, observables, selection, evolution
+- 250+ TIL words: arithmetic, stack, strings, arrays, maps, JSON, observables, matrix/linear algebra, selection, evolution
 - Persistent filesystem (IndexedDB) — files survive page refreshes
 - Command history (500 lines, persistent across sessions)
 - `http-get` / `http-post` with native TIL stack signature via async fetch bridge
@@ -25,9 +25,9 @@ Browser Tab
 │   ├── IDBFS sync for persistence
 │   ├── fetch() bridge for http-get/http-post
 │   └── File management (upload/download/export/import)
-└── ETIL WASM Module (~1.2 MB, ~340 KB gzipped)
-    ├── Core interpreter
-    ├── builtins.til + help.til
+└── ETIL WASM Module (~1.3 MB, ~416 KB gzipped)
+    ├── Core interpreter + Eigen matrix backend
+    ├── builtins.til + help.til + mlp.til
     ├── MEMFS + IDBFS virtual filesystem
     └── 256 MB WASM memory
 ```
@@ -56,6 +56,7 @@ See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for full build details includ
 | `/import` | Import JSON archive |
 | `/get <url>` | HTTP GET (display response) |
 | `/post <url> <body>` | HTTP POST (display response) |
+| `/reset` | Clear stack, cancel colon defs in progress |
 | `/version` | Show version info |
 
 TIL words `http-get` and `http-post` are also available with the native stack signature:
@@ -65,11 +66,11 @@ s" https://httpbin.org/get" map-new http-get   # ( -- body status flag )
 
 ## Word Coverage
 
-~200 of ~396 native ETIL words are available in the browser build.
+~250 of ~396 native ETIL words are available in the browser build.
 
-**Included:** core primitives, strings, arrays, maps, JSON, byte arrays, non-temporal observables, selection engine, evolution engine, LVFS navigation, handler words, self-hosted builtins.
+**Included:** core primitives, strings, arrays, maps, JSON, byte arrays, non-temporal observables, 46 matrix/linear algebra words (via Eigen backend), MLP neural network library, selection engine, evolution engine, LVFS navigation, handler words, self-hosted builtins.
 
-**Excluded (browser sandbox):** matrix/LAPACK, MongoDB, async file I/O (libuv), temporal observables, MLP library.
+**Excluded (browser sandbox):** MongoDB, async file I/O (libuv), temporal observables.
 
 ## Tech Stack
 
@@ -85,8 +86,8 @@ s" https://httpbin.org/get" map-new http-get   # ( -- body status flag )
 
 etil-web is versioned independently from the ETIL interpreter:
 
-- **Interpreter version** — from the compiled ETIL C++ source (e.g., v1.6.1)
-- **Web version** — from `package.json` (e.g., v1.0.0)
+- **Interpreter version** — from the compiled ETIL C++ source (e.g., v1.6.2)
+- **Web version** — from `package.json` (e.g., v1.0.1)
 
 Both versions are displayed in the startup banner.
 
