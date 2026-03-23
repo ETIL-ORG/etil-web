@@ -13,16 +13,19 @@ declare const BUILD_TIME: string;
 
 const MAX_HISTORY = 100;
 
-const HELP_TEXT = `\x1b[36mETIL Browser REPL — Commands\x1b[0m
-
-  \x1b[33m/help\x1b[0m          Show this help
-  \x1b[33m/words\x1b[0m         List all dictionary words
-  \x1b[33m/clear\x1b[0m         Clear the terminal
-  \x1b[33m/stack\x1b[0m         Show the data stack
-  \x1b[33m/version\x1b[0m       Show ETIL version
-
-  Type any TIL code at the prompt.
-  Example: \x1b[32m42 dup + .\x1b[0m`;
+const HELP_LINES = [
+    '\x1b[36mETIL Browser REPL — Commands\x1b[0m',
+    '',
+    '  \x1b[33m/help\x1b[0m       Show this help',
+    '  \x1b[33m/words\x1b[0m      List all dictionary words',
+    '  \x1b[33m/clear\x1b[0m      Clear the terminal',
+    '  \x1b[33m/stack\x1b[0m      Show the data stack',
+    '  \x1b[33m/version\x1b[0m    Show ETIL version',
+    '',
+    '  Type any TIL code at the prompt.',
+    '  Example: \x1b[32m42 dup + .\x1b[0m',
+    '  Example: \x1b[32m: double dup + ; 21 double .\x1b[0m',
+];
 
 export class EtilGlue {
     private terminal: Terminal;
@@ -291,7 +294,9 @@ export class EtilGlue {
     private handleMetaCommand(cmd: string): void {
         switch (cmd.toLowerCase()) {
             case '/help':
-                this.terminal.writeln(HELP_TEXT);
+                for (const line of HELP_LINES) {
+                    this.terminal.writeln(line);
+                }
                 break;
             case '/words':
                 const wordsOut = this.interpreter.interpret('words');
