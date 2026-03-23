@@ -167,7 +167,7 @@ function seedExampleFiles(module: EtilModule): void {
         'hello.til': ': hello ." Hello from ETIL!" cr ;\nhello\n',
         'fibonacci.til': [
             '# Fibonacci sequence',
-            ': fib ( n -- fib )',
+            ': fib # ( n -- fib )',
             '  dup 1 > if',
             '    dup 1 - recurse',
             '    swap 2 - recurse +',
@@ -179,7 +179,7 @@ function seedExampleFiles(module: EtilModule): void {
         ].join('\n'),
         'factorial.til': [
             '# Factorial',
-            ': fact ( n -- n! )',
+            ': fact # ( n -- n! )',
             '  dup 1 > if',
             '    dup 1 - recurse *',
             '  then ;',
