@@ -13,7 +13,8 @@ import { fetchGet, fetchPost, formatResult, type FetchResult } from './fetch-bri
 // Injected by esbuild --define:BUILD_TIME at build time
 declare const BUILD_TIME: string;
 
-const MAX_HISTORY = 100;
+const MAX_HISTORY = 500;
+const HISTORY_STORAGE_KEY = 'etil-repl-history';
 
 const HELP_LINES = [
     '\x1b[36mETIL Browser REPL — Commands\x1b[0m',
@@ -54,6 +55,7 @@ export class EtilGlue {
         this.interpreter = interpreter;
         this.isWasm = isWasm;
         this.wasmInterp = wasmInterp ?? null;
+        this.loadHistory();
     }
 
     /** Display banner and prompt */
@@ -273,7 +275,6 @@ export class EtilGlue {
     }
 
     private addToHistory(line: string): void {
-        // Don't add duplicates of the last entry
         if (this.history.length > 0 && this.history[this.history.length - 1] === line) {
             return;
         }
@@ -281,6 +282,25 @@ export class EtilGlue {
         if (this.history.length > MAX_HISTORY) {
             this.history.shift();
         }
+        this.saveHistory();
+    }
+
+    private loadHistory(): void {
+        try {
+            const json = localStorage.getItem(HISTORY_STORAGE_KEY);
+            if (json) {
+                const arr = JSON.parse(json);
+                if (Array.isArray(arr)) {
+                    this.history = arr.slice(-MAX_HISTORY);
+                }
+            }
+        } catch { /* ignore corrupt localStorage */ }
+    }
+
+    private saveHistory(): void {
+        try {
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(this.history));
+        } catch { /* quota exceeded — silently drop */ }
     }
 
     /** Returns true if prompt is deferred (async op pending) */
