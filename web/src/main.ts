@@ -28,6 +28,7 @@ async function main(): Promise<void> {
         fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace',
         fontSize: 14,
         lineHeight: 1.2,
+        scrollback: 10000,
         cursorBlink: true,
         cursorStyle: 'block',
         allowProposedApi: true,

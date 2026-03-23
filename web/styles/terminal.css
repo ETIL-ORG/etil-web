@@ -33,6 +33,21 @@ html, body {
     opacity: 0 !important;
 }
 
+/* Make scrollbar visible on dark theme */
+.xterm .xterm-viewport::-webkit-scrollbar {
+    width: 10px;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-track {
+    background: #111827;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 5px;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
 /* The helper textarea still needs to receive keyboard events */
 .xterm .xterm-helper-textarea {
     position: absolute !important;
