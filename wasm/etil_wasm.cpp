@@ -1,5 +1,7 @@
-// ETIL WebAssembly entry point
-// Exports C functions for the JavaScript glue layer
+// Copyright (c) 2026 Mark Deazley / ETIL-ORG. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+//
+// ETIL WebAssembly entry point — exports C functions for the JavaScript glue layer
 
 #include "etil/core/dictionary.hpp"
 #include "etil/core/interpreter.hpp"

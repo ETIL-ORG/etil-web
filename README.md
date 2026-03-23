@@ -2,75 +2,94 @@
 
 Browser-based REPL for [ETIL](https://github.com/ETIL-ORG/etil) (Evolutionary Threaded Interpretive Language), compiled to WebAssembly via Emscripten.
 
-## Status
+**Live:** [https://etil-org.github.io/etil-web/](https://etil-org.github.io/etil-web/)
 
-**Early development** — Frontend scaffold complete, WASM compilation not yet implemented.
+## Features
 
-The mock interpreter allows UI development and testing. The real ETIL interpreter will be compiled to WASM in Stage 1.
+- Full ETIL interpreter running client-side in the browser — no server required
+- 200+ TIL words: arithmetic, stack, strings, arrays, maps, JSON, observables, selection, evolution
+- Persistent filesystem (IndexedDB) — files survive page refreshes
+- Command history (500 lines, persistent across sessions)
+- `http-get` / `http-post` with native TIL stack signature via async fetch bridge
+- File management: `/upload`, `/download`, `/export`, `/import`, drag-and-drop
+- Dark terminal theme with line editing, arrow key history, cursor movement
 
 ## Architecture
 
 ```
 Browser Tab
 ├── xterm.js terminal (UI)
-├── TypeScript glue layer (WASM ↔ xterm bridge)
+├── TypeScript glue layer
 │   ├── WASM module loader
 │   ├── stdin/stdout routing
 │   ├── IDBFS sync for persistence
-│   └── fetch() wrapper for http-* words
-└── ETIL WASM Module (~5-7 MB gzipped)
-    ├── Core interpreter (~276 words)
+│   ├── fetch() bridge for http-get/http-post
+│   └── File management (upload/download/export/import)
+└── ETIL WASM Module (~1.2 MB, ~340 KB gzipped)
+    ├── Core interpreter
     ├── builtins.til + help.til
-    ├── MEMFS virtual filesystem
+    ├── MEMFS + IDBFS virtual filesystem
     └── 256 MB WASM memory
 ```
 
-## Tech Stack
-
-- **WASM compilation:** Emscripten
-- **Terminal UI:** [xterm.js](https://xtermjs.org/) v6
-- **Glue layer:** Vanilla TypeScript
-- **Bundler:** esbuild
-- **Package manager:** pnpm
-- **Persistence:** Emscripten IDBFS (IndexedDB-backed)
-- **Deployment:** GitHub Pages via GitHub Actions
-
-## Development
+## Quick Start
 
 ```bash
-# Install dependencies
 pnpm install
+pnpm dev          # http://localhost:8080
+```
 
-# Start dev server (http://localhost:8080)
-pnpm dev
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for full build details including WASM compilation.
 
-# Type check
-pnpm typecheck
+## Commands
 
-# Production build
-pnpm build
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all commands |
+| `/words` | List dictionary words |
+| `/clear` | Clear terminal |
+| `/stack` | Show data stack |
+| `/ls [path]` | List files in /home |
+| `/upload` | Upload .til files |
+| `/download <path>` | Download a file |
+| `/export` | Export /home as JSON |
+| `/import` | Import JSON archive |
+| `/get <url>` | HTTP GET (display response) |
+| `/post <url> <body>` | HTTP POST (display response) |
+| `/version` | Show version info |
+
+TIL words `http-get` and `http-post` are also available with the native stack signature:
+```
+s" https://httpbin.org/get" map-new http-get   # ( -- body status flag )
 ```
 
 ## Word Coverage
 
-The WASM build targets ~276 of ~396 ETIL words (70% coverage). Included:
+~200 of ~396 native ETIL words are available in the browser build.
 
-- Core primitives (arithmetic, stack, comparison, logic, I/O, math)
-- String, array, map, JSON, byte array operations
-- Non-temporal observable operators
-- Selection and evolution engine
-- Handler words (control flow, definitions)
-- Self-hosted words (builtins.til)
+**Included:** core primitives, strings, arrays, maps, JSON, byte arrays, non-temporal observables, selection engine, evolution engine, LVFS navigation, handler words, self-hosted builtins.
 
-Excluded (browser sandbox incompatible):
+**Excluded (browser sandbox):** matrix/LAPACK, MongoDB, async file I/O (libuv), temporal observables, MLP library.
 
-- Matrix/LAPACK (OpenBLAS — FORTRAN + SIMD)
-- MongoDB (TCP sockets + TLS)
-- Async file I/O (libuv — OS threads)
-- Temporal observable operators (thread blocking)
+## Tech Stack
 
-See `docs/design/20260322-WASM-Browser-REPL-Feasibility.md` for the full analysis.
+- **WASM:** [Emscripten](https://emscripten.org/) 5.0
+- **Terminal:** [xterm.js](https://xtermjs.org/) 6.0
+- **Language:** TypeScript (vanilla, no framework)
+- **Bundler:** [esbuild](https://esbuild.github.io/)
+- **Package Manager:** pnpm
+- **Persistence:** Emscripten IDBFS (IndexedDB)
+- **Deployment:** GitHub Pages via GitHub Actions
+
+## Versioning
+
+etil-web is versioned independently from the ETIL interpreter:
+
+- **Interpreter version** — from the compiled ETIL C++ source (e.g., v1.6.1)
+- **Web version** — from `package.json` (e.g., v1.0.0)
+
+Both versions are displayed in the startup banner.
 
 ## License
 
-BSD-3-Clause
+[BSD-3-Clause](LICENSE.md)

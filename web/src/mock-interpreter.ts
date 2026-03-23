@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Mark Deazley / ETIL-ORG. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
 /**
  * Mock interpreter for frontend development without WASM.
  */

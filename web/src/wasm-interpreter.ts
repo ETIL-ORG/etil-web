@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Mark Deazley / ETIL-ORG. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
 /**
  * WASM interpreter — wraps the Emscripten module.
  * Handles IDBFS mount and fs-write sync callback.
