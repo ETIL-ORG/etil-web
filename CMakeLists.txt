@@ -40,6 +40,7 @@ if(EMSCRIPTEN)
         "SHELL:-s NO_EXIT_RUNTIME=1"
         "SHELL:-s TEXTDECODER=2"
         "SHELL:-fwasm-exceptions"
+        "SHELL:-lidbfs.js"
         "SHELL:--embed-file ${CMAKE_CURRENT_SOURCE_DIR}/etil-src/data@/data"
     )
 endif()

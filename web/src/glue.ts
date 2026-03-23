@@ -7,6 +7,7 @@
 
 import type { Terminal } from '@xterm/xterm';
 import type { EtilInterpreter } from './types';
+import type { WasmInterpreter } from './wasm-interpreter';
 
 // Injected by esbuild --define:BUILD_TIME at build time
 declare const BUILD_TIME: string;
@@ -16,20 +17,27 @@ const MAX_HISTORY = 100;
 const HELP_LINES = [
     '\x1b[36mETIL Browser REPL — Commands\x1b[0m',
     '',
-    '  \x1b[33m/help\x1b[0m       Show this help',
-    '  \x1b[33m/words\x1b[0m      List all dictionary words',
-    '  \x1b[33m/clear\x1b[0m      Clear the terminal',
-    '  \x1b[33m/stack\x1b[0m      Show the data stack',
-    '  \x1b[33m/version\x1b[0m    Show ETIL version',
+    '  \x1b[33m/help\x1b[0m               Show this help',
+    '  \x1b[33m/words\x1b[0m              List all dictionary words',
+    '  \x1b[33m/clear\x1b[0m              Clear the terminal',
+    '  \x1b[33m/stack\x1b[0m              Show the data stack',
+    '  \x1b[33m/version\x1b[0m            Show ETIL version',
+    '  \x1b[33m/ls [path]\x1b[0m          List files in /home',
+    '  \x1b[33m/upload\x1b[0m             Upload a .til file (opens file picker)',
+    '  \x1b[33m/download <path>\x1b[0m    Download a file from /home',
+    '  \x1b[33m/export\x1b[0m             Export /home as .tar.gz',
+    '  \x1b[33m/import\x1b[0m             Import a .tar.gz into /home',
     '',
     '  Type any TIL code at the prompt.',
     '  Example: \x1b[32m42 dup + .\x1b[0m',
     '  Example: \x1b[32m: double dup + ; 21 double .\x1b[0m',
+    '  Example: \x1b[32minclude /home/hello.til\x1b[0m',
 ];
 
 export class EtilGlue {
     private terminal: Terminal;
     private interpreter: EtilInterpreter;
+    private wasmInterp: WasmInterpreter | null;
     private lineBuffer: string = '';
     private cursorPos: number = 0;
     private prompt = '> ';
@@ -38,10 +46,11 @@ export class EtilGlue {
     private historyIndex: number = -1;
     private savedLine: string = '';
 
-    constructor(terminal: Terminal, interpreter: EtilInterpreter, isWasm: boolean) {
+    constructor(terminal: Terminal, interpreter: EtilInterpreter, isWasm: boolean, wasmInterp?: WasmInterpreter | null) {
         this.terminal = terminal;
         this.interpreter = interpreter;
         this.isWasm = isWasm;
+        this.wasmInterp = wasmInterp ?? null;
     }
 
     /** Display banner and prompt */
@@ -317,9 +326,25 @@ export class EtilGlue {
             case '/version':
                 this.terminal.writeln(`ETIL v${this.interpreter.getVersion()}`);
                 break;
+            case '/upload':
+                this.cmdUpload();
+                break;
+            case '/export':
+                this.cmdExport();
+                break;
+            case '/import':
+                this.cmdImport();
+                break;
             default:
-                this.terminal.writeln(`\x1b[31mUnknown command: ${cmd}\x1b[0m`);
-                this.terminal.writeln(`Type \x1b[33m/help\x1b[0m for available commands.`);
+                // Commands with arguments
+                if (cmd.toLowerCase().startsWith('/download ')) {
+                    this.cmdDownload(cmd.substring(10).trim());
+                } else if (cmd.toLowerCase().startsWith('/ls')) {
+                    this.cmdLs(cmd.substring(3).trim());
+                } else {
+                    this.terminal.writeln(`\x1b[31mUnknown command: ${cmd}\x1b[0m`);
+                    this.terminal.writeln(`Type \x1b[33m/help\x1b[0m for available commands.`);
+                }
         }
     }
 
@@ -335,5 +360,201 @@ export class EtilGlue {
     private writePrompt(): void {
         this.terminal.write(this.prompt);
         this.terminal.scrollToBottom();
+    }
+
+    // ---- File meta-commands ----
+
+    private cmdLs(path: string): void {
+        if (!this.wasmInterp) {
+            this.terminal.writeln('\x1b[31mFile operations require WASM interpreter\x1b[0m');
+            return;
+        }
+        const dir = path || '/home';
+        const files = this.wasmInterp.listDir(dir);
+        if (files.length === 0) {
+            this.terminal.writeln(`\x1b[90m(empty)\x1b[0m`);
+        } else {
+            for (const f of files) {
+                this.terminal.writeln(f);
+            }
+        }
+    }
+
+    private cmdUpload(): void {
+        if (!this.wasmInterp) {
+            this.terminal.writeln('\x1b[31mFile operations require WASM interpreter\x1b[0m');
+            return;
+        }
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.til,.txt';
+        input.multiple = true;
+        input.onchange = () => {
+            if (!input.files) return;
+            for (const file of input.files) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const content = reader.result as string;
+                    if (this.wasmInterp!.writeFile(`/home/${file.name}`, content)) {
+                        this.terminal.writeln(`\x1b[32mUploaded ${file.name} (${content.length} bytes)\x1b[0m`);
+                    } else {
+                        this.terminal.writeln(`\x1b[31mFailed to write ${file.name}\x1b[0m`);
+                    }
+                    this.writePrompt();
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    }
+
+    private cmdDownload(path: string): void {
+        if (!this.wasmInterp) {
+            this.terminal.writeln('\x1b[31mFile operations require WASM interpreter\x1b[0m');
+            return;
+        }
+        if (!path) {
+            this.terminal.writeln('\x1b[31mUsage: /download <path>\x1b[0m');
+            return;
+        }
+        const fullPath = path.startsWith('/') ? path : `/home/${path}`;
+        const content = this.wasmInterp.readFile(fullPath);
+        if (content === null) {
+            this.terminal.writeln(`\x1b[31mFile not found: ${fullPath}\x1b[0m`);
+            return;
+        }
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = path.split('/').pop() || 'download.til';
+        a.click();
+        URL.revokeObjectURL(url);
+        this.terminal.writeln(`\x1b[32mDownloading ${a.download}\x1b[0m`);
+    }
+
+    private cmdExport(): void {
+        if (!this.wasmInterp) {
+            this.terminal.writeln('\x1b[31mFile operations require WASM interpreter\x1b[0m');
+            return;
+        }
+        // Walk /home recursively and build a simple JSON manifest
+        // (tar.gz would require a library — JSON export is simpler and works)
+        const files: Record<string, string> = {};
+        const walk = (dir: string) => {
+            const entries = this.wasmInterp!.listDir(dir);
+            for (const name of entries) {
+                const fullPath = `${dir}/${name}`;
+                try {
+                    const stat = this.wasmInterp!.fs.stat(fullPath);
+                    if (this.wasmInterp!.fs.isDir(stat.mode)) {
+                        walk(fullPath);
+                    } else {
+                        const content = this.wasmInterp!.readFile(fullPath);
+                        if (content !== null) {
+                            // Store relative to /home
+                            const relPath = fullPath.replace(/^\/home\//, '');
+                            files[relPath] = content;
+                        }
+                    }
+                } catch { /* skip unreadable */ }
+            }
+        };
+        walk('/home');
+
+        const count = Object.keys(files).length;
+        if (count === 0) {
+            this.terminal.writeln('\x1b[90m/home is empty — nothing to export\x1b[0m');
+            return;
+        }
+
+        const json = JSON.stringify(files, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ts = new Date().toISOString().replace(/[:.]/g, '').substring(0, 15);
+        a.href = url;
+        a.download = `etil-home-${ts}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.terminal.writeln(`\x1b[32mExported ${count} files as ${a.download}\x1b[0m`);
+    }
+
+    private cmdImport(): void {
+        if (!this.wasmInterp) {
+            this.terminal.writeln('\x1b[31mFile operations require WASM interpreter\x1b[0m');
+            return;
+        }
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = () => {
+            if (!input.files || input.files.length === 0) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const files = JSON.parse(reader.result as string) as Record<string, string>;
+                    let count = 0;
+                    const maxSize = 50 * 1024 * 1024; // 50 MB guard
+                    let totalSize = 0;
+
+                    for (const content of Object.values(files)) {
+                        totalSize += content.length;
+                    }
+                    if (totalSize > maxSize) {
+                        this.terminal.writeln(`\x1b[31mImport rejected: ${(totalSize / 1024 / 1024).toFixed(1)} MB exceeds 50 MB limit\x1b[0m`);
+                        this.writePrompt();
+                        return;
+                    }
+
+                    for (const [relPath, content] of Object.entries(files)) {
+                        const fullPath = `/home/${relPath}`;
+                        // Create parent directories
+                        const parts = fullPath.split('/');
+                        for (let i = 2; i < parts.length - 1; i++) {
+                            const dir = parts.slice(0, i + 1).join('/');
+                            try { this.wasmInterp!.fs.mkdir(dir); } catch { /* exists */ }
+                        }
+                        if (this.wasmInterp!.writeFile(fullPath, content)) {
+                            count++;
+                        }
+                    }
+                    this.terminal.writeln(`\x1b[32mImported ${count} files into /home\x1b[0m`);
+                } catch (err) {
+                    this.terminal.writeln(`\x1b[31mImport failed: invalid JSON\x1b[0m`);
+                }
+                this.writePrompt();
+            };
+            reader.readAsText(input.files[0]);
+        };
+        input.click();
+    }
+
+    /** Set up drag-and-drop file upload on the terminal container */
+    setupDragDrop(container: HTMLElement): void {
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!this.wasmInterp || !e.dataTransfer?.files) return;
+
+            for (const file of e.dataTransfer.files) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const content = reader.result as string;
+                    if (this.wasmInterp!.writeFile(`/home/${file.name}`, content)) {
+                        this.terminal.writeln(`\r\n\x1b[32mDropped: ${file.name} (${content.length} bytes)\x1b[0m`);
+                    } else {
+                        this.terminal.writeln(`\r\n\x1b[31mFailed to write ${file.name}\x1b[0m`);
+                    }
+                    this.writePrompt();
+                };
+                reader.readAsText(file);
+            }
+        });
     }
 }

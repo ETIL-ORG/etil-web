@@ -96,7 +96,7 @@ async function main(): Promise<void> {
 
     let glue: EtilGlue;
     if (wasmInterp) {
-        glue = new EtilGlue(terminal, wasmInterp, true);
+        glue = new EtilGlue(terminal, wasmInterp, true, wasmInterp);
         setStatus('Ready (WASM)', 'ready');
     } else {
         glue = new EtilGlue(terminal, new MockInterpreter(), false);
@@ -104,6 +104,7 @@ async function main(): Promise<void> {
     }
 
     glue.init();
+    glue.setupDragDrop(container);
 
     terminal.onData((data) => glue.onData(data));
     terminal.focus();
