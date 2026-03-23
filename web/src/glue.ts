@@ -48,7 +48,16 @@ export class EtilGlue {
         const buildTime = BUILD_TIME;
 
         this.terminal.writeln(`\x1b[36mETIL v${version}\x1b[0m — Evolutionary Threaded Interpretive Language`);
-        this.terminal.writeln(`\x1b[90mBrowser REPL (${mode} interpreter) — type /help for commands\x1b[0m`);
+
+        if (this.isWasm) {
+            // Count words by capturing 'words' output and counting tokens
+            const wordsOutput = this.interpreter.interpret('words');
+            const wordCount = wordsOutput.trim().split(/\s+/).filter(w => w.length > 0).length;
+            this.terminal.writeln(`\x1b[90m${wordCount} words loaded (${mode}) — type /help for commands\x1b[0m`);
+        } else {
+            this.terminal.writeln(`\x1b[90mBrowser REPL (${mode}) — type /help for commands\x1b[0m`);
+        }
+
         this.terminal.writeln(`\x1b[90mBuild: ${buildTime}\x1b[0m`);
         this.terminal.writeln('');
         this.writePrompt();
