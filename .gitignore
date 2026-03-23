@@ -1,5 +1,7 @@
 CLAUDE.md
 .claude/
+.idea/
+screenshots
 build-wasm/
 node_modules/
 dist/
