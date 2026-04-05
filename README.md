@@ -2,7 +2,7 @@
 
 Browser-based REPL for [ETIL](https://github.com/ETIL-ORG/etil) (Evolutionary Threaded Interpretive Language), compiled to WebAssembly via Emscripten.
 
-**Live:** [https://etil-org.github.io/etil-web/](https://etil-org.github.io/etil-web/)
+## **Live:** [https://etil-org.github.io/etil-web/](https://etil-org.github.io/etil-web/)
 
 ## Features
 
@@ -40,6 +40,10 @@ pnpm dev          # http://localhost:8080
 ```
 
 See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for full build details including WASM compilation.
+
+### Design, Plan and Review Documents
+
+See the [https://github.com/ETIL-ORG/etil-web/tree/master/docs/design](https://github.com/ETIL-ORG/etil-web/tree/master/docs/design) directory.
 
 ## Commands
 
