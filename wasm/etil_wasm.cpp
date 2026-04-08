@@ -3,6 +3,7 @@
 //
 // ETIL WebAssembly entry point — exports C functions for the JavaScript glue layer
 
+#include "etil/core/interpreter_bootstrap.hpp"
 #include "etil/core/dictionary.hpp"
 #include "etil/core/interpreter.hpp"
 #include "etil/core/execution_context.hpp"
@@ -22,8 +23,7 @@
 #endif
 
 // Static interpreter state (single-threaded in WASM)
-static etil::core::Dictionary* g_dict = nullptr;
-static etil::core::Interpreter* g_interp = nullptr;
+static std::unique_ptr<etil::core::InterpreterBundle> g_bundle;
 static etil::lvfs::Lvfs* g_lvfs = nullptr;
 static std::ostringstream g_out;
 static std::ostringstream g_err;
@@ -118,24 +118,24 @@ extern "C" {
 EMSCRIPTEN_KEEPALIVE
 #endif
 void etil_init() {
-    if (g_dict) return;  // Already initialized
+    if (g_bundle) return;  // Already initialized
 
-    g_dict = new etil::core::Dictionary();
-    etil::core::register_primitives(*g_dict);
+    // Unified bootstrap — same entry point as native REPL and MCP server
+    g_bundle = etil::core::bootstrap_interpreter(
+        etil::core::BootstrapMode::Wasm,
+        g_out, g_err,
+        {"/data/builtins.til", "/data/help.til"});
 
     // Register WASM-specific http-get/http-post that defer to JS fetch()
     using T = etil::core::TypeSignature::Type;
-    g_dict->register_word("http-get",
+    g_bundle->dict->register_word("http-get",
         etil::core::make_primitive("http-get", prim_wasm_http_get,
             {T::Unknown, T::Unknown}, {}));
-    g_dict->register_word("http-post",
+    g_bundle->dict->register_word("http-post",
         etil::core::make_primitive("http-post", prim_wasm_http_post,
             {T::Unknown, T::Unknown, T::Unknown}, {}));
 
-    g_interp = new etil::core::Interpreter(*g_dict, g_out, g_err);
-
     // Set up LVFS: /home → /home (Emscripten MEMFS/IDBFS), /library → /data/library
-    // Create /home directory if it doesn't exist (first run)
     std::error_code ec;
     std::filesystem::create_directories("/home", ec);
     std::filesystem::create_directories("/data/library", ec);
@@ -144,25 +144,7 @@ void etil_init() {
     g_lvfs->set_write_callback([]() {
         if (g_fs_write_callback) g_fs_write_callback();
     });
-    g_interp->set_lvfs(g_lvfs);
-
-    // Load startup files from Emscripten MEMFS
-    // Failures are non-fatal — interpreter works without them
-    try {
-        if (!g_interp->load_file("/data/builtins.til")) {
-            g_err << "Warning: failed to load builtins.til\n";
-        }
-    } catch (...) {
-        g_err << "Warning: exception loading builtins.til\n";
-    }
-
-    try {
-        if (!g_interp->load_file("/data/help.til")) {
-            g_err << "Warning: failed to load help.til\n";
-        }
-    } catch (...) {
-        g_err << "Warning: exception loading help.til\n";
-    }
+    g_bundle->interp->set_lvfs(g_lvfs);
 }
 
 /// Interpret a line of TIL code.
@@ -171,7 +153,7 @@ void etil_init() {
 EMSCRIPTEN_KEEPALIVE
 #endif
 const char* etil_interpret(const char* line) {
-    if (!g_interp) {
+    if (!g_bundle) {
         g_result_buf = "Error: interpreter not initialized. Call etil_init() first.";
         return g_result_buf.c_str();
     }
@@ -181,7 +163,7 @@ const char* etil_interpret(const char* line) {
     g_err.str("");
     g_err.clear();
 
-    g_interp->interpret_line(line);
+    g_bundle->interp->interpret_line(line);
 
     // Combine output and errors
     std::string out = g_out.str();
@@ -202,12 +184,12 @@ const char* etil_interpret(const char* line) {
 EMSCRIPTEN_KEEPALIVE
 #endif
 const char* etil_get_stack() {
-    if (!g_interp) {
+    if (!g_bundle) {
         g_result_buf = "(not initialized)";
         return g_result_buf.c_str();
     }
 
-    g_result_buf = g_interp->stack_status();
+    g_result_buf = g_bundle->interp->stack_status();
     return g_result_buf.c_str();
 }
 
@@ -313,17 +295,17 @@ const char* etil_pending_fetch_body() {
 EMSCRIPTEN_KEEPALIVE
 #endif
 void etil_push_fetch_result(const char* body, int status, int ok) {
-    if (!g_interp) return;
+    if (!g_bundle) return;
 
     // Push body as a HeapString
     auto* hs = etil::core::HeapString::create(body);
-    g_interp->context().data_stack().push(etil::core::make_heap_value(hs));
+    g_bundle->interp->context().data_stack().push(etil::core::make_heap_value(hs));
 
     // Push status code
-    g_interp->context().data_stack().push(etil::core::Value(static_cast<int64_t>(status)));
+    g_bundle->interp->context().data_stack().push(etil::core::Value(static_cast<int64_t>(status)));
 
     // Push success flag
-    g_interp->context().data_stack().push(etil::core::Value(ok != 0));
+    g_bundle->interp->context().data_stack().push(etil::core::Value(ok != 0));
 
     g_pending_fetch.active = false;
 }
